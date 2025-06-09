@@ -24,7 +24,7 @@ const WelcomeMessage = () => {
           className="absolute top-6 right-6 text-poetry-deep/60 hover:text-poetry-deep transition-colors p-2 rounded-full hover:bg-poetry-bronze/10"
         >
           <X className="w-5 h-5" />
-        button>
+        </button>
         
         <div className="text-center space-y-6 relative z-10">
           <div className="flex justify-center mb-6">
