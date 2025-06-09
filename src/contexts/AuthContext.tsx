@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface AuthContextType {
@@ -11,10 +10,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple admin credentials - in a real app, this would be handled by a backend
+// Updated admin credentials
 const ADMIN_CREDENTIALS = {
-  username: 'poet',
-  password: 'writewords2024'
+  username: 'Varnika',
+  password: 'kaushik_1947_varnika'
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

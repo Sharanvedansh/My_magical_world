@@ -100,16 +100,6 @@ const AdminLogin = () => {
             ✨ Enter Your Magical Writing World ✨
           </button>
         </form>
-
-        <div className="mt-8 text-center magical-glow bg-poetry-warm/60 p-4 rounded-xl backdrop-blur-sm">
-          <p className="font-dancing text-lg text-poetry-deep/70 mb-2">
-            ✨ Demo Magical Credentials ✨
-          </p>
-          <div className="font-cormorant text-poetry-deep">
-            <p><strong>Writer's Name:</strong> poet</p>
-            <p><strong>Secret Key:</strong> writewords2024</p>
-          </div>
-        </div>
       </div>
     </div>
   );
