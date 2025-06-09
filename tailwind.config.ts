@@ -54,12 +54,16 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				poetry: {
-					cream: '#faf7f4',
-					rose: '#f4e4e8',
-					lavender: '#e8e1f0',
-					sage: '#e8f0e1',
-					dusty: '#d4c4b8',
-					deep: '#8b7d6b'
+					cream: '#fefcf8',
+					warm: '#fffbf0',
+					golden: '#fef9ec',
+					honey: '#fcebcf',
+					amber: '#f7d794',
+					sunset: '#efbd7d',
+					bronze: '#ddc875',
+					antique: '#c4a55b',
+					deep: '#2d231a',
+					ink: '#403529'
 				}
 			},
 			fontFamily: {
@@ -106,13 +110,22 @@ export default {
 						opacity: '1',
 						transform: 'translateY(0)'
 					}
+				},
+				'magical-pulse': {
+					'0%, 100%': {
+						boxShadow: '0 0 20px rgba(255, 220, 125, 0.3), 0 0 40px rgba(252, 231, 192, 0.2)'
+					},
+					'50%': {
+						boxShadow: '0 0 30px rgba(255, 220, 125, 0.5), 0 0 60px rgba(252, 231, 192, 0.3)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'float': 'float 6s ease-in-out infinite',
-				'fadeIn': 'fadeIn 0.8s ease-out'
+				'fadeIn': 'fadeIn 0.8s ease-out',
+				'magical-pulse': 'magical-pulse 4s ease-in-out infinite'
 			}
 		}
 	},
