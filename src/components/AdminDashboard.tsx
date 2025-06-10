@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogOut, Plus, Edit, Trash2, Eye, BookOpen, Upload, Image, X, Star, Heart, User } from 'lucide-react';
 import WelcomeMessage from './WelcomeMessage';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Poem {
   id: string;
   title: string;
   content: string;
   category: string;
-  date: string;
+  created_at: string;
   published: boolean;
-  image?: string;
+  image_url?: string;
 }
 
 interface BlogPost {
@@ -19,13 +22,14 @@ interface BlogPost {
   excerpt: string;
   content: string;
   category: string;
-  date: string;
-  readTime: string;
+  created_at: string;
+  read_time: string;
   published: boolean;
-  image?: string;
+  image_url?: string;
 }
 
 interface WriterBio {
+  id: string;
   name: string;
   title: string;
   bio: string;
@@ -34,46 +38,12 @@ interface WriterBio {
 
 const AdminDashboard = () => {
   const { logout } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('poems');
   
-  const [poems, setPoems] = useState<Poem[]>([
-    {
-      id: '1',
-      title: 'Whispers of Dawn',
-      content: 'In the quiet hours before sunrise,\nWhen the world holds its breath,\nI find pieces of my soul\nScattered like morning dew...',
-      category: 'Nature',
-      date: '2024-01-15',
-      published: true
-    },
-    {
-      id: '2',
-      title: 'City Dreams',
-      content: 'Concrete and steel cannot contain\nThe dreams that dance in my heart,\nUrban symphonies play\nIn the rhythm of my steps...',
-      category: 'Urban',
-      date: '2024-01-10',
-      published: false
-    }
-  ]);
-
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([
-    {
-      id: '1',
-      title: 'The Magic of Morning Pages',
-      excerpt: 'Discovering the transformative power of writing three pages every morning, and how it changed my relationship with words forever.',
-      content: 'There\'s something magical about the quiet hours of dawn...',
-      category: 'Writing Tips',
-      date: '2024-01-20',
-      readTime: '5 min read',
-      published: true
-    }
-  ]);
-
-  const [writerBio, setWriterBio] = useState<WriterBio>({
-    name: 'Tarini',
-    title: 'Magical Word Weaver',
-    bio: 'A dreamer who believes in the magic of words and the power of stories to change hearts.',
-    email: 'varnika1947kaushik@gmail.com'
-  });
+  const [poems, setPoems] = useState<Poem[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [writerBio, setWriterBio] = useState<WriterBio | null>(null);
 
   const [editingPoem, setEditingPoem] = useState<Poem | null>(null);
   const [newPoem, setNewPoem] = useState({
@@ -81,7 +51,7 @@ const AdminDashboard = () => {
     content: '',
     category: '',
     published: false,
-    image: ''
+    image_url: ''
   });
 
   const [editingBlogPost, setEditingBlogPost] = useState<BlogPost | null>(null);
@@ -90,85 +60,327 @@ const AdminDashboard = () => {
     excerpt: '',
     content: '',
     category: '',
-    readTime: '',
+    read_time: '',
     published: false,
-    image: ''
+    image_url: ''
   });
 
   const [editingBio, setEditingBio] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSavePoem = () => {
-    if (editingPoem) {
-      setPoems(poems.map(p => p.id === editingPoem.id ? editingPoem : p));
-      setEditingPoem(null);
-    } else {
-      const poem: Poem = {
-        id: Date.now().toString(),
-        ...newPoem,
-        date: new Date().toISOString().split('T')[0]
-      };
-      setPoems([...poems, poem]);
-      setNewPoem({ title: '', content: '', category: '', published: false, image: '' });
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchPoems(), fetchBlogPosts(), fetchWriterBio()]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeletePoem = (id: string) => {
-    setPoems(poems.filter(p => p.id !== id));
+  const fetchPoems = async () => {
+    const { data, error } = await supabase
+      .from('poems')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching poems:', error);
+      return;
+    }
+    
+    setPoems(data || []);
   };
 
-  const handleImageUpload = (file: File, isEditing: boolean = false) => {
+  const fetchBlogPosts = async () => {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching blog posts:', error);
+      return;
+    }
+    
+    setBlogPosts(data || []);
+  };
+
+  const fetchWriterBio = async () => {
+    const { data, error } = await supabase
+      .from('writer_bio')
+      .select('*')
+      .limit(1)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching writer bio:', error);
+      return;
+    }
+    
+    setWriterBio(data);
+  };
+
+  const handleSavePoem = async () => {
+    try {
+      if (editingPoem) {
+        const { error } = await supabase
+          .from('poems')
+          .update({
+            title: editingPoem.title,
+            content: editingPoem.content,
+            category: editingPoem.category,
+            published: editingPoem.published,
+            image_url: editingPoem.image_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingPoem.id);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Poem updated successfully! ✨"
+        });
+        setEditingPoem(null);
+      } else {
+        const { error } = await supabase
+          .from('poems')
+          .insert({
+            title: newPoem.title,
+            content: newPoem.content,
+            category: newPoem.category,
+            published: newPoem.published,
+            image_url: newPoem.image_url
+          });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Poem saved successfully! ✨"
+        });
+        setNewPoem({ title: '', content: '', category: '', published: false, image_url: '' });
+      }
+      
+      await fetchPoems();
+    } catch (error) {
+      console.error('Error saving poem:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save poem",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeletePoem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('poems')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Poem deleted successfully"
+      });
+      
+      await fetchPoems();
+    } catch (error) {
+      console.error('Error deleting poem:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete poem",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveBlogPost = async () => {
+    try {
+      if (editingBlogPost) {
+        const { error } = await supabase
+          .from('blog_posts')
+          .update({
+            title: editingBlogPost.title,
+            excerpt: editingBlogPost.excerpt,
+            content: editingBlogPost.content,
+            category: editingBlogPost.category,
+            read_time: editingBlogPost.read_time,
+            published: editingBlogPost.published,
+            image_url: editingBlogPost.image_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingBlogPost.id);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Blog post updated successfully! ✨"
+        });
+        setEditingBlogPost(null);
+      } else {
+        const { error } = await supabase
+          .from('blog_posts')
+          .insert({
+            title: newBlogPost.title,
+            excerpt: newBlogPost.excerpt,
+            content: newBlogPost.content,
+            category: newBlogPost.category,
+            read_time: newBlogPost.read_time,
+            published: newBlogPost.published,
+            image_url: newBlogPost.image_url
+          });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Blog post saved successfully! ✨"
+        });
+        setNewBlogPost({ title: '', excerpt: '', content: '', category: '', read_time: '', published: false, image_url: '' });
+      }
+      
+      await fetchBlogPosts();
+    } catch (error) {
+      console.error('Error saving blog post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save blog post",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteBlogPost = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('blog_posts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Blog post deleted successfully"
+      });
+      
+      await fetchBlogPosts();
+    } catch (error) {
+      console.error('Error deleting blog post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete blog post",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveBio = async () => {
+    try {
+      if (!writerBio) return;
+      
+      const { error } = await supabase
+        .from('writer_bio')
+        .update({
+          name: writerBio.name,
+          title: writerBio.title,
+          bio: writerBio.bio,
+          email: writerBio.email,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', writerBio.id);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully! ✨"
+      });
+      setEditingBio(false);
+    } catch (error) {
+      console.error('Error saving bio:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleImageUpload = (file: File, isEditing: boolean = false, type: 'poem' | 'blog' = 'poem') => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageUrl = e.target?.result as string;
-      if (isEditing && editingPoem) {
-        setEditingPoem({...editingPoem, image: imageUrl});
+      if (type === 'poem') {
+        if (isEditing && editingPoem) {
+          setEditingPoem({...editingPoem, image_url: imageUrl});
+        } else {
+          setNewPoem({...newPoem, image_url: imageUrl});
+        }
       } else {
-        setNewPoem({...newPoem, image: imageUrl});
+        if (isEditing && editingBlogPost) {
+          setEditingBlogPost({...editingBlogPost, image_url: imageUrl});
+        } else {
+          setNewBlogPost({...newBlogPost, image_url: imageUrl});
+        }
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleDrop = (e: React.DragEvent, isEditing: boolean = false) => {
+  const handleDrop = (e: React.DragEvent, isEditing: boolean = false, type: 'poem' | 'blog' = 'poem') => {
     e.preventDefault();
     setDragOver(false);
     const files = e.dataTransfer.files;
     if (files.length > 0 && files[0].type.startsWith('image/')) {
-      handleImageUpload(files[0], isEditing);
+      handleImageUpload(files[0], isEditing, type);
     }
   };
 
-  const removeImage = (isEditing: boolean = false) => {
-    if (isEditing && editingPoem) {
-      setEditingPoem({...editingPoem, image: ''});
+  const removeImage = (isEditing: boolean = false, type: 'poem' | 'blog' = 'poem') => {
+    if (type === 'poem') {
+      if (isEditing && editingPoem) {
+        setEditingPoem({...editingPoem, image_url: ''});
+      } else {
+        setNewPoem({...newPoem, image_url: ''});
+      }
     } else {
-      setNewPoem({...newPoem, image: ''});
+      if (isEditing && editingBlogPost) {
+        setEditingBlogPost({...editingBlogPost, image_url: ''});
+      } else {
+        setNewBlogPost({...newBlogPost, image_url: ''});
+      }
     }
   };
 
-  const handleSaveBlogPost = () => {
-    if (editingBlogPost) {
-      setBlogPosts(blogPosts.map(p => p.id === editingBlogPost.id ? editingBlogPost : p));
-      setEditingBlogPost(null);
-    } else {
-      const post: BlogPost = {
-        id: Date.now().toString(),
-        ...newBlogPost,
-        date: new Date().toISOString().split('T')[0]
-      };
-      setBlogPosts([...blogPosts, post]);
-      setNewBlogPost({ title: '', excerpt: '', content: '', category: '', readTime: '', published: false, image: '' });
-    }
-  };
-
-  const handleDeleteBlogPost = (id: string) => {
-    setBlogPosts(blogPosts.filter(p => p.id !== id));
-  };
-
-  const handleSaveBio = () => {
-    setEditingBio(false);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Heart className="w-12 h-12 text-poetry-sunset mx-auto mb-4 animate-pulse" />
+          <p className="font-cormorant text-xl text-poetry-deep">Loading your magical sanctuary...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -266,15 +478,15 @@ const AdminDashboard = () => {
                       Add a magical image to your poem
                     </label>
                     
-                    {(editingPoem?.image || newPoem.image) ? (
+                    {(editingPoem?.image_url || newPoem.image_url) ? (
                       <div className="relative">
                         <img 
-                          src={editingPoem?.image || newPoem.image} 
+                          src={editingPoem?.image_url || newPoem.image_url} 
                           alt="Poem visual" 
                           className="w-full h-48 object-cover rounded-xl magical-glow"
                         />
                         <button
-                          onClick={() => removeImage(!!editingPoem)}
+                          onClick={() => removeImage(!!editingPoem, 'poem')}
                           className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                         >
                           <X className="w-4 h-4" />
@@ -283,7 +495,7 @@ const AdminDashboard = () => {
                     ) : (
                       <div
                         className={`photo-upload-area ${dragOver ? 'dragover' : ''} rounded-xl p-8 text-center cursor-pointer transition-all duration-300`}
-                        onDrop={(e) => handleDrop(e, !!editingPoem)}
+                        onDrop={(e) => handleDrop(e, !!editingPoem, 'poem')}
                         onDragOver={(e) => {e.preventDefault(); setDragOver(true);}}
                         onDragLeave={() => setDragOver(false)}
                         onClick={() => document.getElementById(editingPoem ? 'edit-file-input' : 'file-input')?.click()}
@@ -304,7 +516,7 @@ const AdminDashboard = () => {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleImageUpload(file, !!editingPoem);
+                        if (file) handleImageUpload(file, !!editingPoem, 'poem');
                       }}
                       className="hidden"
                     />
@@ -358,50 +570,59 @@ const AdminDashboard = () => {
               {/* Poems List */}
               <div className="space-y-6">
                 <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text">Your Collection of Magic</h2>
-                {poems.map((poem) => (
-                  <div key={poem.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6 backdrop-blur-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        {poem.image && (
-                          <img 
-                            src={poem.image} 
-                            alt={poem.title} 
-                            className="w-full h-32 object-cover rounded-lg mb-4 magical-glow"
-                          />
-                        )}
-                        <div className="flex items-center space-x-3 mb-3">
-                          <h3 className="font-playfair text-2xl text-poetry-deep">{poem.title}</h3>
-                          <span className={`px-3 py-1 rounded-full text-sm font-cormorant font-semibold ${
-                            poem.published ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                          }`}>
-                            {poem.published ? '✨ Published' : '📝 Draft'}
-                          </span>
-                          <span className="px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant border border-poetry-bronze/20">
-                            {poem.category}
-                          </span>
+                {poems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <BookOpen className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-4" />
+                    <p className="font-cormorant text-xl text-poetry-deep/70">Your poetry collection is waiting for its first magical creation...</p>
+                  </div>
+                ) : (
+                  poems.map((poem) => (
+                    <div key={poem.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6 backdrop-blur-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {poem.image_url && (
+                            <img 
+                              src={poem.image_url} 
+                              alt={poem.title} 
+                              className="w-full h-32 object-cover rounded-lg mb-4 magical-glow"
+                            />
+                          )}
+                          <div className="flex items-center space-x-3 mb-3">
+                            <h3 className="font-playfair text-2xl text-poetry-deep">{poem.title}</h3>
+                            <span className={`px-3 py-1 rounded-full text-sm font-cormorant font-semibold ${
+                              poem.published ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                            }`}>
+                              {poem.published ? '✨ Published' : '📝 Draft'}
+                            </span>
+                            {poem.category && (
+                              <span className="px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant border border-poetry-bronze/20">
+                                {poem.category}
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-cormorant text-poetry-deep/80 mb-3 leading-relaxed text-lg">
+                            {poem.content.substring(0, 150)}...
+                          </p>
+                          <p className="text-sm text-poetry-deep/60 font-cormorant italic">{new Date(poem.created_at).toLocaleDateString()}</p>
                         </div>
-                        <p className="font-cormorant text-poetry-deep/80 mb-3 leading-relaxed text-lg">
-                          {poem.content.substring(0, 150)}...
-                        </p>
-                        <p className="text-sm text-poetry-deep/60 font-cormorant italic">{poem.date}</p>
-                      </div>
-                      <div className="flex space-x-2 ml-6">
-                        <button
-                          onClick={() => setEditingPoem(poem)}
-                          className="p-3 text-poetry-deep hover:bg-poetry-bronze/20 rounded-xl transition-all duration-300 magical-glow"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePoem(poem.id)}
-                          className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        <div className="flex space-x-2 ml-6">
+                          <button
+                            onClick={() => setEditingPoem(poem)}
+                            className="p-3 text-poetry-deep hover:bg-poetry-bronze/20 rounded-xl transition-all duration-300 magical-glow"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePoem(poem.id)}
+                            className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -442,10 +663,10 @@ const AdminDashboard = () => {
                     <input
                       type="text"
                       placeholder="Read time (e.g., 5 min read)..."
-                      value={editingBlogPost ? editingBlogPost.readTime : newBlogPost.readTime}
+                      value={editingBlogPost ? editingBlogPost.read_time : newBlogPost.read_time}
                       onChange={(e) => editingBlogPost 
-                        ? setEditingBlogPost({...editingBlogPost, readTime: e.target.value})
-                        : setNewBlogPost({...newBlogPost, readTime: e.target.value})
+                        ? setEditingBlogPost({...editingBlogPost, read_time: e.target.value})
+                        : setNewBlogPost({...newBlogPost, read_time: e.target.value})
                       }
                       className="w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-300 hover:border-poetry-bronze/50"
                     />
@@ -462,7 +683,56 @@ const AdminDashboard = () => {
                     className="w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg leading-relaxed bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-300 hover:border-poetry-bronze/50"
                   />
 
-                  {/* Image upload section - similar to poems */}
+                  {/* Image upload section */}
+                  <div className="space-y-4">
+                    <label className="block font-cormorant text-lg text-poetry-deep flex items-center">
+                      <Image className="w-5 h-5 mr-2 text-poetry-bronze" />
+                      Add a magical image to your thought
+                    </label>
+                    
+                    {(editingBlogPost?.image_url || newBlogPost.image_url) ? (
+                      <div className="relative">
+                        <img 
+                          src={editingBlogPost?.image_url || newBlogPost.image_url} 
+                          alt="Blog post visual" 
+                          className="w-full h-48 object-cover rounded-xl magical-glow"
+                        />
+                        <button
+                          onClick={() => removeImage(!!editingBlogPost, 'blog')}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className={`photo-upload-area ${dragOver ? 'dragover' : ''} rounded-xl p-8 text-center cursor-pointer transition-all duration-300`}
+                        onDrop={(e) => handleDrop(e, !!editingBlogPost, 'blog')}
+                        onDragOver={(e) => {e.preventDefault(); setDragOver(true);}}
+                        onDragLeave={() => setDragOver(false)}
+                        onClick={() => document.getElementById(editingBlogPost ? 'edit-blog-file-input' : 'blog-file-input')?.click()}
+                      >
+                        <Upload className="w-12 h-12 text-poetry-bronze/60 mx-auto mb-4" />
+                        <p className="font-cormorant text-lg text-poetry-deep/70 mb-2">
+                          Drop your magical image here, or click to browse
+                        </p>
+                        <p className="font-cormorant text-sm text-poetry-deep/50">
+                          PNG, JPG, GIF up to 10MB
+                        </p>
+                      </div>
+                    )}
+                    
+                    <input
+                      id={editingBlogPost ? 'edit-blog-file-input' : 'blog-file-input'}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, !!editingBlogPost, 'blog');
+                      }}
+                      className="hidden"
+                    />
+                  </div>
                   
                   <textarea
                     placeholder="Let your magical thoughts flow here..."
@@ -512,44 +782,58 @@ const AdminDashboard = () => {
               {/* Blog Posts List */}
               <div className="space-y-6">
                 <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text">Your Magical Thoughts</h2>
-                {blogPosts.map((post) => (
-                  <div key={post.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6 backdrop-blur-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <h3 className="font-playfair text-2xl text-poetry-deep">{post.title}</h3>
-                          <span className={`px-3 py-1 rounded-full text-sm font-cormorant font-semibold ${
-                            post.published ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                          }`}>
-                            {post.published ? '✨ Published' : '📝 Draft'}
-                          </span>
+                {blogPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Edit className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-4" />
+                    <p className="font-cormorant text-xl text-poetry-deep/70">Your thoughts are waiting to be shared with the world...</p>
+                  </div>
+                ) : (
+                  blogPosts.map((post) => (
+                    <div key={post.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6 backdrop-blur-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {post.image_url && (
+                            <img 
+                              src={post.image_url} 
+                              alt={post.title} 
+                              className="w-full h-32 object-cover rounded-lg mb-4 magical-glow"
+                            />
+                          )}
+                          <div className="flex items-center space-x-3 mb-3">
+                            <h3 className="font-playfair text-2xl text-poetry-deep">{post.title}</h3>
+                            <span className={`px-3 py-1 rounded-full text-sm font-cormorant font-semibold ${
+                              post.published ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                            }`}>
+                              {post.published ? '✨ Published' : '📝 Draft'}
+                            </span>
+                          </div>
+                          <p className="font-cormorant text-poetry-deep/80 mb-3 leading-relaxed text-lg">
+                            {post.excerpt}
+                          </p>
+                          <div className="flex items-center space-x-4 text-sm text-poetry-deep/60 font-cormorant">
+                            {post.category && <span>{post.category}</span>}
+                            <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                            {post.read_time && <span>{post.read_time}</span>}
+                          </div>
                         </div>
-                        <p className="font-cormorant text-poetry-deep/80 mb-3 leading-relaxed text-lg">
-                          {post.excerpt}
-                        </p>
-                        <div className="flex items-center space-x-4 text-sm text-poetry-deep/60 font-cormorant">
-                          <span>{post.category}</span>
-                          <span>{post.date}</span>
-                          <span>{post.readTime}</span>
+                        <div className="flex space-x-2 ml-6">
+                          <button
+                            onClick={() => setEditingBlogPost(post)}
+                            className="p-3 text-poetry-deep hover:bg-poetry-bronze/20 rounded-xl transition-all duration-300 magical-glow"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBlogPost(post.id)}
+                            className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
                         </div>
-                      </div>
-                      <div className="flex space-x-2 ml-6">
-                        <button
-                          onClick={() => setEditingBlogPost(post)}
-                          className="p-3 text-poetry-deep hover:bg-poetry-bronze/20 rounded-xl transition-all duration-300 magical-glow"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteBlogPost(post.id)}
-                          className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -562,95 +846,97 @@ const AdminDashboard = () => {
                   ✨ Your Writer Profile ✨
                 </h2>
                 
-                <div className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
+                {writerBio && (
+                  <div className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block font-cormorant text-lg text-poetry-deep mb-3">
+                          Writer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={writerBio.name}
+                          onChange={(e) => setWriterBio({...writerBio, name: e.target.value})}
+                          disabled={!editingBio}
+                          className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg transition-all duration-300 ${
+                            editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block font-cormorant text-lg text-poetry-deep mb-3">
+                          Title
+                        </label>
+                        <input
+                          type="text"
+                          value={writerBio.title}
+                          onChange={(e) => setWriterBio({...writerBio, title: e.target.value})}
+                          disabled={!editingBio}
+                          className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg transition-all duration-300 ${
+                            editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block font-cormorant text-lg text-poetry-deep mb-3">
-                        Writer Name
+                        Contact Email
                       </label>
                       <input
-                        type="text"
-                        value={writerBio.name}
-                        onChange={(e) => setWriterBio({...writerBio, name: e.target.value})}
+                        type="email"
+                        value={writerBio.email}
+                        onChange={(e) => setWriterBio({...writerBio, email: e.target.value})}
                         disabled={!editingBio}
                         className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg transition-all duration-300 ${
+                          editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-cormorant text-lg text-poetry-deep mb-3">
+                        Bio
+                      </label>
+                      <textarea
+                        value={writerBio.bio}
+                        onChange={(e) => setWriterBio({...writerBio, bio: e.target.value})}
+                        disabled={!editingBio}
+                        rows={6}
+                        className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg leading-relaxed transition-all duration-300 ${
                           editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
                         }`}
                       />
                     </div>
                     
-                    <div>
-                      <label className="block font-cormorant text-lg text-poetry-deep mb-3">
-                        Title
-                      </label>
-                      <input
-                        type="text"
-                        value={writerBio.title}
-                        onChange={(e) => setWriterBio({...writerBio, title: e.target.value})}
-                        disabled={!editingBio}
-                        className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg transition-all duration-300 ${
-                          editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-cormorant text-lg text-poetry-deep mb-3">
-                      Contact Email
-                    </label>
-                    <input
-                      type="email"
-                      value={writerBio.email}
-                      onChange={(e) => setWriterBio({...writerBio, email: e.target.value})}
-                      disabled={!editingBio}
-                      className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg transition-all duration-300 ${
-                        editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-cormorant text-lg text-poetry-deep mb-3">
-                      Bio
-                    </label>
-                    <textarea
-                      value={writerBio.bio}
-                      onChange={(e) => setWriterBio({...writerBio, bio: e.target.value})}
-                      disabled={!editingBio}
-                      rows={6}
-                      className={`w-full px-6 py-4 border-2 border-poetry-bronze/30 rounded-xl font-cormorant text-lg leading-relaxed transition-all duration-300 ${
-                        editingBio ? 'bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary' : 'bg-poetry-cream/40'
-                      }`}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-4">
-                    {editingBio ? (
-                      <>
+                    <div className="flex justify-end space-x-4">
+                      {editingBio ? (
+                        <>
+                          <button
+                            onClick={() => setEditingBio(false)}
+                            className="px-6 py-3 text-poetry-deep border-2 border-poetry-bronze/30 rounded-xl hover:bg-poetry-bronze/10 transition-all duration-300 font-cormorant font-semibold"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveBio}
+                            className="px-8 py-3 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-xl hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant font-semibold magical-glow transform hover:scale-105"
+                          >
+                            ✨ Save Profile ✨
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          onClick={() => setEditingBio(false)}
-                          className="px-6 py-3 text-poetry-deep border-2 border-poetry-bronze/30 rounded-xl hover:bg-poetry-bronze/10 transition-all duration-300 font-cormorant font-semibold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveBio}
+                          onClick={() => setEditingBio(true)}
                           className="px-8 py-3 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-xl hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant font-semibold magical-glow transform hover:scale-105"
                         >
-                          ✨ Save Profile ✨
+                          ✨ Edit Profile ✨
                         </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setEditingBio(true)}
-                        className="px-8 py-3 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-xl hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant font-semibold magical-glow transform hover:scale-105"
-                      >
-                        ✨ Edit Profile ✨
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

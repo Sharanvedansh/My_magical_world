@@ -1,155 +1,199 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
-import { Heart, BookOpen, Calendar, Tag } from 'lucide-react';
+import { Heart, BookOpen, Star, Sparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Poem {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  created_at: string;
+  image_url?: string;
+}
 
 const Poetry = () => {
-  const poems = [
-    {
-      id: 1,
-      title: "Whispers of Dawn",
-      content: `In the quiet hours before sunrise,
-When the world holds its breath,
-I find pieces of my soul
-Scattered like morning dew.
+  const [poems, setPoems] = useState<Poem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedPoem, setSelectedPoem] = useState<Poem | null>(null);
+  const [loading, setLoading] = useState(true);
 
-Each droplet carries a dream,
-A whisper of what could be,
-In this sacred space between
-Night's end and day's beginning.`,
-      category: "Nature",
-      date: "2024-01-15",
-      image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop"
-    },
-    {
-      id: 2,
-      title: "City Dreams",
-      content: `Concrete and steel cannot contain
-The wildness of a dreaming heart,
-Urban symphonies play
-In the rhythm of my steps.
+  useEffect(() => {
+    fetchPoems();
+  }, []);
 
-Between the noise and chaos,
-I find melodies unspoken,
-Stories written in streetlights
-And hope painted on walls.`,
-      category: "Urban",
-      date: "2024-01-10",
-      image: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=500&h=300&fit=crop"
-    },
-    {
-      id: 3,
-      title: "Letters to Tomorrow",
-      content: `Dear future self,
-I hope you remember the girl
-Who dared to dream
-When the world said "impossible."
-
-Keep her close to your heart,
-For she is the reason
-You became who you are—
-Beautiful, brave, and whole.`,
-      category: "Reflection",
-      date: "2024-01-05",
-      image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=500&h=300&fit=crop"
-    }
-  ];
-
-  return (
-    <div className="min-h-screen">
-      <Navigation />
+  const fetchPoems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('poems')
+        .select('*')
+        .eq('published', true)
+        .order('created_at', { ascending: false });
       
-      {/* Hero Section */}
-      <section className="pt-32 pb-16 px-6">
-        <div className="container mx-auto text-center">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="font-playfair text-5xl md:text-6xl text-poetry-deep mb-6 shimmer-text">
-              ✨ Poetry Collection ✨
-            </h1>
-            
-            <p className="font-dancing text-2xl md:text-3xl text-primary mb-8">
-              Words that dance from heart to paper
-            </p>
-            
-            <p className="font-cormorant text-xl text-poetry-deep/80 max-w-2xl mx-auto leading-relaxed">
-              Welcome to my collection of poems, where every verse carries a piece of my soul.
-              Each poem is a journey, a moment captured in words that bloom like flowers in the mind.
-            </p>
+      if (error) {
+        console.error('Error fetching poems:', error);
+        return;
+      }
+      
+      setPoems(data || []);
+    } catch (error) {
+      console.error('Error fetching poems:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categories = ['All', ...Array.from(new Set(poems.map(poem => poem.category).filter(Boolean)))];
+  
+  const filteredPoems = selectedCategory === 'All' 
+    ? poems 
+    : poems.filter(poem => poem.category === selectedCategory);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Navigation />
+        <div className="pt-20 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <BookOpen className="w-12 h-12 text-poetry-sunset mx-auto mb-4 animate-pulse" />
+            <p className="font-cormorant text-xl text-poetry-deep">Loading magical poetry...</p>
           </div>
         </div>
-      </section>
+      </div>
+    );
+  }
 
-      {/* Poems Grid */}
-      <section className="py-16 px-6">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            {poems.map((poem) => (
-              <div 
-                key={poem.id}
-                className="magical-glow book-shadow paper-texture rounded-2xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 group"
+  return (
+    <div className="min-h-screen relative overflow-hidden">
+      <Navigation />
+      
+      {/* Magical floating elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Star className="absolute top-1/4 left-1/12 w-3 h-3 text-poetry-amber/30 sparkle-animation" style={{animationDelay: '0s'}} />
+        <Heart className="absolute top-1/3 right-1/12 w-4 h-4 text-poetry-sunset/40 gentle-float" style={{animationDelay: '1s'}} />
+        <Sparkles className="absolute bottom-1/4 left-1/6 w-5 h-5 text-poetry-bronze/25 animate-float" style={{animationDelay: '2s'}} />
+        <Star className="absolute bottom-1/3 right-1/4 w-3 h-3 text-poetry-honey/50 sparkle-animation" style={{animationDelay: '0.5s'}} />
+      </div>
+
+      <div className="pt-20 container mx-auto px-6 py-8 relative z-10">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="font-playfair text-6xl text-poetry-deep mb-4 shimmer-text">
+            ✨ Poetry Collection ✨
+          </h1>
+          <p className="font-cormorant text-2xl text-poetry-deep/80 italic max-w-2xl mx-auto">
+            Where words dance with dreams and emotions paint the sky
+          </p>
+        </div>
+
+        {/* Category Filter */}
+        {categories.length > 1 && (
+          <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-6 py-3 rounded-xl font-cormorant font-semibold transition-all duration-300 ${
+                  selectedCategory === category
+                    ? 'bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream shadow-lg transform scale-105 magical-glow'
+                    : 'bg-poetry-warm/60 text-poetry-deep hover:bg-poetry-bronze/20 hover:scale-102'
+                } backdrop-blur-sm`}
               >
-                <div className="relative">
+                {category}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Poems Grid */}
+        {filteredPoems.length === 0 ? (
+          <div className="text-center py-16">
+            <BookOpen className="w-20 h-20 text-poetry-bronze/50 mx-auto mb-6" />
+            <h2 className="font-playfair text-3xl text-poetry-deep mb-4">
+              The magic is brewing...
+            </h2>
+            <p className="font-cormorant text-xl text-poetry-deep/70 max-w-md mx-auto">
+              Beautiful poems are coming soon to fill this space with wonder and emotion.
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredPoems.map((poem) => (
+              <div
+                key={poem.id}
+                onClick={() => setSelectedPoem(poem)}
+                className="magical-glow book-shadow paper-texture rounded-2xl p-6 backdrop-blur-sm cursor-pointer transform hover:scale-105 transition-all duration-300 hover:shadow-xl"
+              >
+                {poem.image_url && (
                   <img 
-                    src={poem.image} 
-                    alt={poem.title}
-                    className="w-full h-48 object-cover"
+                    src={poem.image_url} 
+                    alt={poem.title} 
+                    className="w-full h-48 object-cover rounded-lg mb-4 magical-glow"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-poetry-deep/60 to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="flex items-center justify-between text-poetry-cream">
-                      <span className="px-3 py-1 bg-poetry-amber/90 text-poetry-deep rounded-full text-sm font-cormorant font-semibold">
-                        {poem.category}
-                      </span>
-                      <div className="flex items-center space-x-1 text-sm">
-                        <Calendar className="w-4 h-4" />
-                        <span className="font-cormorant">{poem.date}</span>
-                      </div>
-                    </div>
-                  </div>
+                )}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-playfair text-xl text-poetry-deep">{poem.title}</h3>
+                  <Heart className="w-5 h-5 text-poetry-sunset" />
                 </div>
-                
-                <div className="p-6">
-                  <h3 className="font-playfair text-2xl text-poetry-deep mb-4 group-hover:text-primary transition-colors">
-                    {poem.title}
-                  </h3>
-                  
-                  <p className="font-cormorant text-lg text-poetry-deep/80 leading-relaxed whitespace-pre-line mb-4">
-                    {poem.content}
-                  </p>
-                  
-                  <div className="flex items-center justify-between pt-4 border-t border-poetry-bronze/20">
-                    <div className="flex items-center space-x-2 text-poetry-deep/60">
-                      <Heart className="w-4 h-4" />
-                      <span className="font-cormorant text-sm">By Tarini</span>
-                    </div>
-                    <button className="text-primary hover:text-primary/80 font-cormorant underline underline-offset-4">
-                      Read more →
-                    </button>
-                  </div>
-                </div>
+                {poem.category && (
+                  <span className="inline-block px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant font-semibold mb-3 border border-poetry-bronze/20">
+                    {poem.category}
+                  </span>
+                )}
+                <p className="font-cormorant text-poetry-deep/80 leading-relaxed">
+                  {poem.content.substring(0, 120)}...
+                </p>
+                <p className="text-sm text-poetry-deep/60 font-cormorant italic mt-4">
+                  {new Date(poem.created_at).toLocaleDateString()}
+                </p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* Call to Action */}
-      <section className="py-16 px-6 bg-gradient-to-br from-poetry-honey/20 to-poetry-amber/20">
-        <div className="container mx-auto text-center">
-          <div className="max-w-2xl mx-auto">
-            <BookOpen className="w-12 h-12 text-primary mx-auto mb-6 floating-element" />
-            <h2 className="font-playfair text-3xl text-poetry-deep mb-4">
-              More Magic Coming Soon
-            </h2>
-            <p className="font-cormorant text-xl text-poetry-deep/80 mb-8">
-              New poems are born regularly. Subscribe to never miss a magical moment.
-            </p>
-            <button className="px-8 py-4 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-full hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant font-semibold text-lg magical-glow transform hover:scale-105">
-              ✨ Stay Connected ✨
-            </button>
+        {/* Poem Modal */}
+        {selectedPoem && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="magical-glow book-shadow paper-texture rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text">
+                  {selectedPoem.title}
+                </h2>
+                <button
+                  onClick={() => setSelectedPoem(null)}
+                  className="text-poetry-deep/60 hover:text-poetry-deep text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              {selectedPoem.image_url && (
+                <img 
+                  src={selectedPoem.image_url} 
+                  alt={selectedPoem.title} 
+                  className="w-full h-64 object-cover rounded-lg mb-6 magical-glow"
+                />
+              )}
+              
+              {selectedPoem.category && (
+                <span className="inline-block px-4 py-2 bg-poetry-honey/30 text-poetry-deep rounded-full font-cormorant font-semibold mb-6 border border-poetry-bronze/20">
+                  {selectedPoem.category}
+                </span>
+              )}
+              
+              <div className="font-cormorant text-lg leading-relaxed text-poetry-deep whitespace-pre-line mb-6">
+                {selectedPoem.content}
+              </div>
+              
+              <div className="flex items-center justify-between text-sm text-poetry-deep/60 font-cormorant italic">
+                <span>By Varnika</span>
+                <span>{new Date(selectedPoem.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
 };
