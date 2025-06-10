@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import LikeButton from '@/components/LikeButton';
+import CommentSection from '@/components/CommentSection';
+import SubscriptionForm from '@/components/SubscriptionForm';
 import { Edit, Heart, Star, Calendar, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,6 +21,7 @@ interface BlogPost {
 const Blog = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +45,7 @@ const Blog = () => {
     }
   };
 
-  const filteredPoems = selectedCategory === 'all' 
+  const filteredPosts = selectedCategory === 'all' 
     ? posts 
     : posts.filter(post => post.category?.toLowerCase() === selectedCategory.toLowerCase());
 
@@ -85,6 +89,13 @@ const Blog = () => {
         </div>
       </section>
 
+      {/* Subscription Form */}
+      <section className="px-6 pb-8">
+        <div className="container mx-auto max-w-4xl">
+          <SubscriptionForm />
+        </div>
+      </section>
+
       {/* Categories */}
       {categories.length > 1 && (
         <section className="px-6 pb-8">
@@ -111,7 +122,7 @@ const Blog = () => {
       {/* Blog Posts */}
       <section className="px-6 pb-16">
         <div className="container mx-auto">
-          {filteredPoems.length === 0 ? (
+          {filteredPosts.length === 0 ? (
             <div className="text-center py-16">
               <Edit className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-6" />
               <h3 className="font-playfair text-2xl text-poetry-deep mb-4">No posts yet</h3>
@@ -120,53 +131,75 @@ const Blog = () => {
               </p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-              {filteredPoems.map((post) => (
-                <article key={post.id} className="magical-glow book-shadow paper-texture rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-300">
-                  {post.image_url && (
-                    <div className="h-48 overflow-hidden">
-                      <img 
-                        src={post.image_url} 
-                        alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h2 className="font-playfair text-2xl text-poetry-deep group-hover:text-primary transition-colors">
-                        {post.title}
-                      </h2>
-                      {post.category && (
-                        <span className="px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant border border-poetry-bronze/20">
-                          {post.category}
-                        </span>
-                      )}
-                    </div>
+            <div className="space-y-12">
+              {filteredPosts.map((post) => (
+                <article key={post.id} className="max-w-4xl mx-auto">
+                  <div className="magical-glow book-shadow paper-texture rounded-2xl overflow-hidden">
+                    {post.image_url && (
+                      <div className="h-64 overflow-hidden">
+                        <img 
+                          src={post.image_url} 
+                          alt={post.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                     
-                    <p className="font-cormorant text-lg text-poetry-deep/80 mb-4 leading-relaxed">
-                      {post.excerpt}
-                    </p>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t border-poetry-bronze/20">
-                      <div className="flex items-center space-x-4 text-poetry-deep/60">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4" />
-                          <span className="font-cormorant text-sm">
-                            {new Date(post.created_at).toLocaleDateString()}
+                    <div className="p-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-playfair text-3xl text-poetry-deep">
+                          {post.title}
+                        </h2>
+                        {post.category && (
+                          <span className="px-4 py-2 bg-poetry-honey/30 text-poetry-deep rounded-full font-cormorant border border-poetry-bronze/20">
+                            {post.category}
                           </span>
-                        </div>
-                        {post.read_time && (
-                          <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4" />
-                            <span className="font-cormorant text-sm">{post.read_time}</span>
-                          </div>
                         )}
                       </div>
                       
-                      <LikeButton postId={post.id} postType="blog_post" />
+                      <p className="font-cormorant text-xl text-poetry-deep/80 mb-6 leading-relaxed italic">
+                        {post.excerpt}
+                      </p>
+                      
+                      {expandedPost === post.id && (
+                        <div className="prose prose-poetry max-w-none mb-6">
+                          <div className="font-cormorant text-lg text-poetry-deep/90 leading-relaxed whitespace-pre-line">
+                            {post.content}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
+                        className="mb-6 text-primary hover:text-poetry-sunset font-cormorant font-semibold transition-colors"
+                      >
+                        {expandedPost === post.id ? 'Read Less' : 'Read Full Post'}
+                      </button>
+                      
+                      <div className="flex items-center justify-between pt-4 border-t border-poetry-bronze/20">
+                        <div className="flex items-center space-x-4 text-poetry-deep/60">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="w-4 h-4" />
+                            <span className="font-cormorant text-sm">
+                              {new Date(post.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {post.read_time && (
+                            <div className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-cormorant text-sm">{post.read_time}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <LikeButton postId={post.id} postType="blog_post" />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Comments Section for each post */}
+                  <div className="max-w-4xl mx-auto">
+                    <CommentSection postId={post.id} postType="blog_post" />
                   </div>
                 </article>
               ))}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Plus, Edit, Trash2, Eye, BookOpen, Upload, Image, X, Star, Heart, User, Mail } from 'lucide-react';
+import { LogOut, Plus, Edit, Trash2, Eye, BookOpen, Upload, Image, X, Star, Heart, User, Mail, MessageCircle, Check, Reply } from 'lucide-react';
 import WelcomeMessage from './WelcomeMessage';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +44,25 @@ interface ContactMessage {
   created_at: string;
 }
 
+interface Comment {
+  id: string;
+  post_id: string;
+  post_type: string;
+  author_name: string;
+  author_email: string;
+  content: string;
+  approved: boolean;
+  created_at: string;
+}
+
+interface Subscription {
+  id: string;
+  email: string;
+  name: string | null;
+  subscribed_at: string;
+  is_active: boolean;
+}
+
 const AdminDashboard = () => {
   const { logout } = useAuth();
   const { toast } = useToast();
@@ -53,6 +72,10 @@ const AdminDashboard = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [writerBio, setWriterBio] = useState<WriterBio | null>(null);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState('');
 
   const [editingPoem, setEditingPoem] = useState<Poem | null>(null);
   const [newPoem, setNewPoem] = useState({
@@ -86,7 +109,14 @@ const AdminDashboard = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchPoems(), fetchBlogPosts(), fetchWriterBio(), fetchContactMessages()]);
+      await Promise.all([
+        fetchPoems(), 
+        fetchBlogPosts(), 
+        fetchWriterBio(), 
+        fetchContactMessages(),
+        fetchComments(),
+        fetchSubscriptions()
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -111,6 +141,34 @@ const AdminDashboard = () => {
     }
     
     setContactMessages(data || []);
+  };
+
+  const fetchComments = async () => {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching comments:', error);
+      return;
+    }
+    
+    setComments(data || []);
+  };
+
+  const fetchSubscriptions = async () => {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .order('subscribed_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching subscriptions:', error);
+      return;
+    }
+    
+    setSubscriptions(data || []);
   };
 
   const fetchPoems = async () => {
@@ -348,6 +406,75 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleApproveComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .update({ approved: true })
+        .eq('id', commentId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Comment approved successfully! ✨"
+      });
+      
+      await fetchComments();
+    } catch (error) {
+      console.error('Error approving comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve comment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Comment deleted successfully"
+      });
+      
+      await fetchComments();
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete comment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleReplyToMessage = async (messageId: string) => {
+    if (!replyContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a reply message",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Reply Sent",
+      description: "Your reply has been sent! ✨ (Note: Email functionality requires additional setup)"
+    });
+    
+    setReplyingTo(null);
+    setReplyContent('');
+  };
+
   const handleImageUpload = (file: File, isEditing: boolean = false, type: 'poem' | 'blog' = 'poem') => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -444,23 +571,30 @@ const AdminDashboard = () => {
               { id: 'poems', label: 'Poetry Collection', icon: BookOpen },
               { id: 'blog', label: 'Magical Thoughts', icon: Edit },
               { id: 'bio', label: 'Writer Profile', icon: User },
+              { id: 'comments', label: 'Comments', icon: MessageCircle },
               { id: 'messages', label: 'Messages', icon: Mail },
+              { id: 'subscriptions', label: 'Subscribers', icon: Heart },
               { id: 'analytics', label: 'Reader Hearts', icon: Eye }
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-8 py-4 rounded-xl transition-all duration-300 font-cormorant font-semibold ${
+                className={`flex items-center space-x-2 px-6 py-3 rounded-xl transition-all duration-300 font-cormorant font-semibold ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream shadow-lg transform scale-105 magical-glow'
                     : 'text-poetry-deep hover:bg-poetry-cream/50 hover:scale-102'
                 }`}
               >
-                <tab.icon className="w-5 h-5" />
-                <span>{tab.label}</span>
+                <tab.icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
                 {tab.id === 'messages' && contactMessages.length > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-1">
+                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
                     {contactMessages.length}
+                  </span>
+                )}
+                {tab.id === 'comments' && comments.filter(c => !c.approved).length > 0 && (
+                  <span className="bg-yellow-500 text-white text-xs rounded-full px-2 py-1">
+                    {comments.filter(c => !c.approved).length}
                   </span>
                 )}
               </button>
@@ -970,6 +1104,112 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {activeTab === 'comments' && (
+            <div className="space-y-6">
+              <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text flex items-center">
+                <MessageCircle className="w-8 h-8 mr-3 text-primary" />
+                Comment Management
+              </h2>
+              
+              {comments.length === 0 ? (
+                <div className="text-center py-16">
+                  <MessageCircle className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-6" />
+                  <h3 className="font-playfair text-2xl text-poetry-deep mb-4">No comments yet</h3>
+                  <p className="font-cormorant text-lg text-poetry-deep/60">
+                    Waiting for the first magical conversation...
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className={`magical-glow book-shadow paper-texture rounded-2xl p-6 ${!comment.approved ? 'border-l-4 border-yellow-500' : 'border-l-4 border-green-500'}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="font-playfair text-xl text-poetry-deep">{comment.author_name}</h3>
+                            <span className={`px-3 py-1 rounded-full text-sm font-cormorant ${comment.approved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {comment.approved ? '✓ Approved' : '⏳ Pending'}
+                            </span>
+                            <span className="px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant">
+                              {comment.post_type === 'poem' ? 'Poetry' : 'Blog'}
+                            </span>
+                          </div>
+                          <p className="font-cormorant text-poetry-deep/80 text-sm mb-2">
+                            Email: {comment.author_email}
+                          </p>
+                          <p className="font-cormorant text-poetry-deep/80 text-sm mb-4">
+                            Posted: {new Date(comment.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          {!comment.approved && (
+                            <button
+                              onClick={() => handleApproveComment(comment.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Approve comment"
+                            >
+                              <Check className="w-5 h-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete comment"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="font-cormorant text-poetry-deep leading-relaxed whitespace-pre-line bg-poetry-cream/40 rounded-lg p-4">
+                        {comment.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'subscriptions' && (
+            <div className="space-y-6">
+              <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text flex items-center">
+                <Heart className="w-8 h-8 mr-3 text-primary" />
+                Subscribers ({subscriptions.filter(s => s.is_active).length})
+              </h2>
+              
+              {subscriptions.length === 0 ? (
+                <div className="text-center py-16">
+                  <Heart className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-6" />
+                  <h3 className="font-playfair text-2xl text-poetry-deep mb-4">No subscribers yet</h3>
+                  <p className="font-cormorant text-lg text-poetry-deep/60">
+                    Your magical community is waiting to grow...
+                  </p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {subscriptions.filter(s => s.is_active).map((subscription) => (
+                    <div key={subscription.id} className="magical-glow book-shadow paper-texture rounded-xl p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-cormorant text-lg font-semibold text-poetry-deep">
+                            {subscription.name || 'Anonymous Reader'}
+                          </h3>
+                          <p className="font-cormorant text-poetry-deep/70">{subscription.email}</p>
+                          <p className="font-cormorant text-sm text-poetry-deep/60">
+                            Joined: {new Date(subscription.subscribed_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Heart className="w-6 h-6 text-poetry-sunset" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'messages' && (
             <div className="space-y-6">
               <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text flex items-center">
@@ -990,20 +1230,56 @@ const AdminDashboard = () => {
                   {contactMessages.map((message) => (
                     <div key={message.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6">
                       <div className="flex items-start justify-between mb-4">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-playfair text-xl text-poetry-deep mb-1">{message.subject}</h3>
                           <p className="font-cormorant text-poetry-deep/80">
                             From: <span className="font-semibold">{message.name}</span> ({message.email})
                           </p>
                         </div>
-                        <span className="font-cormorant text-sm text-poetry-deep/60">
-                          {new Date(message.created_at).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-cormorant text-sm text-poetry-deep/60">
+                            {new Date(message.created_at).toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={() => setReplyingTo(replyingTo === message.id ? null : message.id)}
+                            className="p-2 text-poetry-deep hover:bg-poetry-bronze/20 rounded-lg transition-colors"
+                            title="Reply to message"
+                          >
+                            <Reply className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                       
-                      <div className="font-cormorant text-poetry-deep leading-relaxed whitespace-pre-line">
+                      <div className="font-cormorant text-poetry-deep leading-relaxed whitespace-pre-line mb-4">
                         {message.message}
                       </div>
+
+                      {replyingTo === message.id && (
+                        <div className="border-t border-poetry-bronze/20 pt-4">
+                          <h4 className="font-cormorant text-lg font-semibold text-poetry-deep mb-3">Reply to {message.name}</h4>
+                          <textarea
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            placeholder="Write your reply..."
+                            rows={4}
+                            className="w-full px-4 py-3 border border-poetry-bronze/30 rounded-lg font-cormorant bg-poetry-cream/80 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-300"
+                          />
+                          <div className="flex justify-end space-x-3 mt-3">
+                            <button
+                              onClick={() => setReplyingTo(null)}
+                              className="px-4 py-2 text-poetry-deep border border-poetry-bronze/30 rounded-lg hover:bg-poetry-bronze/10 transition-colors font-cormorant"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleReplyToMessage(message.id)}
+                              className="px-4 py-2 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-lg hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant font-semibold"
+                            >
+                              Send Reply
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import LikeButton from '@/components/LikeButton';
+import CommentSection from '@/components/CommentSection';
+import SubscriptionForm from '@/components/SubscriptionForm';
 import { BookOpen, Heart, Star, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,6 +19,7 @@ interface Poem {
 const Poetry = () => {
   const [poems, setPoems] = useState<Poem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [expandedPoem, setExpandedPoem] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,6 +87,13 @@ const Poetry = () => {
         </div>
       </section>
 
+      {/* Subscription Form */}
+      <section className="px-6 pb-8">
+        <div className="container mx-auto max-w-4xl">
+          <SubscriptionForm />
+        </div>
+      </section>
+
       {/* Categories */}
       {categories.length > 1 && (
         <section className="px-6 pb-8">
@@ -118,49 +129,68 @@ const Poetry = () => {
               </p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="space-y-12">
               {filteredPoems.map((poem) => (
-                <div key={poem.id} className="magical-glow book-shadow paper-texture rounded-2xl overflow-hidden group hover:scale-105 transition-all duration-300">
-                  {poem.image_url && (
-                    <div className="h-48 overflow-hidden">
-                      <img 
-                        src={poem.image_url} 
-                        alt={poem.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-playfair text-2xl text-poetry-deep group-hover:text-primary transition-colors">
-                        {poem.title}
-                      </h3>
-                      {poem.category && (
-                        <span className="px-3 py-1 bg-poetry-honey/30 text-poetry-deep rounded-full text-sm font-cormorant border border-poetry-bronze/20">
-                          {poem.category}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="prose prose-poetry max-w-none mb-4">
-                      <div className="font-cormorant text-poetry-deep/90 leading-relaxed whitespace-pre-line">
-                        {poem.content.length > 200 ? `${poem.content.substring(0, 200)}...` : poem.content}
+                <article key={poem.id} className="max-w-4xl mx-auto">
+                  <div className="magical-glow book-shadow paper-texture rounded-2xl overflow-hidden">
+                    {poem.image_url && (
+                      <div className="h-64 overflow-hidden">
+                        <img 
+                          src={poem.image_url} 
+                          alt={poem.title}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    </div>
+                    )}
                     
-                    <div className="flex items-center justify-between pt-4 border-t border-poetry-bronze/20">
-                      <div className="flex items-center space-x-2 text-poetry-deep/60">
-                        <Calendar className="w-4 h-4" />
-                        <span className="font-cormorant text-sm">
-                          {new Date(poem.created_at).toLocaleDateString()}
-                        </span>
+                    <div className="p-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-playfair text-3xl text-poetry-deep">
+                          {poem.title}
+                        </h2>
+                        {poem.category && (
+                          <span className="px-4 py-2 bg-poetry-honey/30 text-poetry-deep rounded-full font-cormorant border border-poetry-bronze/20">
+                            {poem.category}
+                          </span>
+                        )}
                       </div>
                       
-                      <LikeButton postId={poem.id} postType="poem" />
+                      <div className="prose prose-poetry max-w-none mb-6">
+                        <div className="font-cormorant text-lg text-poetry-deep/90 leading-relaxed whitespace-pre-line">
+                          {expandedPoem === poem.id || poem.content.length <= 300 
+                            ? poem.content 
+                            : `${poem.content.substring(0, 300)}...`
+                          }
+                        </div>
+                        
+                        {poem.content.length > 300 && (
+                          <button
+                            onClick={() => setExpandedPoem(expandedPoem === poem.id ? null : poem.id)}
+                            className="mt-4 text-primary hover:text-poetry-sunset font-cormorant font-semibold transition-colors"
+                          >
+                            {expandedPoem === poem.id ? 'Read Less' : 'Read More'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-4 border-t border-poetry-bronze/20">
+                        <div className="flex items-center space-x-2 text-poetry-deep/60">
+                          <Calendar className="w-4 h-4" />
+                          <span className="font-cormorant text-sm">
+                            {new Date(poem.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        <LikeButton postId={poem.id} postType="poem" />
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Comments Section for each poem */}
+                  <div className="max-w-4xl mx-auto">
+                    <CommentSection postId={poem.id} postType="poem" />
+                  </div>
+                </article>
               ))}
             </div>
           )}
