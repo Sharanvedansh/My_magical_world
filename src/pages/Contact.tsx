@@ -1,30 +1,10 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import Navigation from '@/components/Navigation';
-import { Mail, Heart, Send, MapPin, Star } from 'lucide-react';
+import ContactForm from '@/components/ContactForm';
+import { Mail, Heart, MapPin, Star } from 'lucide-react';
 
 const Contact = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Create mailto link with the form data
-    const mailtoLink = `mailto:varnika1947kaushik@gmail.com?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`From: ${formData.name} (${formData.email})\n\n${formData.message}`)}`;
-    window.location.href = mailtoLink;
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
   return (
     <div className="min-h-screen">
       <Navigation />
@@ -54,84 +34,7 @@ const Contact = () => {
         <div className="container mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
             {/* Contact Form */}
-            <div className="magical-glow book-shadow paper-texture rounded-2xl p-8">
-              <h2 className="font-playfair text-3xl text-poetry-deep mb-6 flex items-center">
-                <Send className="w-8 h-8 mr-3 text-primary" />
-                Send a Message
-              </h2>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-cormorant text-lg text-poetry-deep mb-2">
-                      Your Name
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-3 border-2 border-poetry-bronze/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-poetry-cream/80 font-cormorant text-lg transition-all duration-300"
-                      placeholder="What should I call you?"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block font-cormorant text-lg text-poetry-deep mb-2">
-                      Your Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-3 border-2 border-poetry-bronze/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-poetry-cream/80 font-cormorant text-lg transition-all duration-300"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block font-cormorant text-lg text-poetry-deep mb-2">
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-3 border-2 border-poetry-bronze/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-poetry-cream/80 font-cormorant text-lg transition-all duration-300"
-                    placeholder="What's this about?"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block font-cormorant text-lg text-poetry-deep mb-2">
-                    Your Message
-                  </label>
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    required
-                    rows={6}
-                    className="w-full px-4 py-3 border-2 border-poetry-bronze/30 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-poetry-cream/80 font-cormorant text-lg leading-relaxed transition-all duration-300"
-                    placeholder="Share your thoughts, dreams, or just say hello..."
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-gradient-to-r from-poetry-bronze to-poetry-amber text-poetry-cream rounded-xl hover:from-poetry-amber hover:to-poetry-sunset transition-all duration-300 font-cormorant text-lg font-semibold magical-glow transform hover:scale-105 flex items-center justify-center space-x-2"
-                >
-                  <Heart className="w-5 h-5" />
-                  <span>✨ Send with Love ✨</span>
-                </button>
-              </form>
-            </div>
+            <ContactForm />
 
             {/* Contact Info */}
             <div className="space-y-8">

@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Plus, Edit, Trash2, Eye, BookOpen, Upload, Image, X, Star, Heart, User } from 'lucide-react';
+import { LogOut, Plus, Edit, Trash2, Eye, BookOpen, Upload, Image, X, Star, Heart, User, Mail } from 'lucide-react';
 import WelcomeMessage from './WelcomeMessage';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +35,15 @@ interface WriterBio {
   email: string;
 }
 
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  created_at: string;
+}
+
 const AdminDashboard = () => {
   const { logout } = useAuth();
   const { toast } = useToast();
@@ -44,6 +52,7 @@ const AdminDashboard = () => {
   const [poems, setPoems] = useState<Poem[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [writerBio, setWriterBio] = useState<WriterBio | null>(null);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
 
   const [editingPoem, setEditingPoem] = useState<Poem | null>(null);
   const [newPoem, setNewPoem] = useState({
@@ -77,7 +86,7 @@ const AdminDashboard = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchPoems(), fetchBlogPosts(), fetchWriterBio()]);
+      await Promise.all([fetchPoems(), fetchBlogPosts(), fetchWriterBio(), fetchContactMessages()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -88,6 +97,20 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchContactMessages = async () => {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching contact messages:', error);
+      return;
+    }
+    
+    setContactMessages(data || []);
   };
 
   const fetchPoems = async () => {
@@ -421,6 +444,7 @@ const AdminDashboard = () => {
               { id: 'poems', label: 'Poetry Collection', icon: BookOpen },
               { id: 'blog', label: 'Magical Thoughts', icon: Edit },
               { id: 'bio', label: 'Writer Profile', icon: User },
+              { id: 'messages', label: 'Messages', icon: Mail },
               { id: 'analytics', label: 'Reader Hearts', icon: Eye }
             ].map((tab) => (
               <button
@@ -434,6 +458,11 @@ const AdminDashboard = () => {
               >
                 <tab.icon className="w-5 h-5" />
                 <span>{tab.label}</span>
+                {tab.id === 'messages' && contactMessages.length > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-1">
+                    {contactMessages.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -941,6 +970,47 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {activeTab === 'messages' && (
+            <div className="space-y-6">
+              <h2 className="font-playfair text-3xl text-poetry-deep shimmer-text flex items-center">
+                <Mail className="w-8 h-8 mr-3 text-primary" />
+                Contact Messages
+              </h2>
+              
+              {contactMessages.length === 0 ? (
+                <div className="text-center py-16">
+                  <Mail className="w-16 h-16 text-poetry-bronze/50 mx-auto mb-6" />
+                  <h3 className="font-playfair text-2xl text-poetry-deep mb-4">No messages yet</h3>
+                  <p className="font-cormorant text-lg text-poetry-deep/60">
+                    Waiting for the first magical connection...
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {contactMessages.map((message) => (
+                    <div key={message.id} className="magical-glow book-shadow paper-texture rounded-2xl p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-playfair text-xl text-poetry-deep mb-1">{message.subject}</h3>
+                          <p className="font-cormorant text-poetry-deep/80">
+                            From: <span className="font-semibold">{message.name}</span> ({message.email})
+                          </p>
+                        </div>
+                        <span className="font-cormorant text-sm text-poetry-deep/60">
+                          {new Date(message.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      
+                      <div className="font-cormorant text-poetry-deep leading-relaxed whitespace-pre-line">
+                        {message.message}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'analytics' && (
             <div className="text-center py-16">
               <Heart className="w-16 h-16 text-poetry-sunset mx-auto mb-6 animate-pulse" />
@@ -959,3 +1029,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+</initial_code>
